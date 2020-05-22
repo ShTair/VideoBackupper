@@ -3,7 +3,6 @@ using Microsoft.Azure.Storage.Blob;
 using Realms;
 using ShComp;
 using System;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -14,7 +13,7 @@ namespace VideoBackupper
     {
         static async Task Main(string[] args)
         {
-            var azcopyPath = args[0];
+            AzCopy.Initialize(args[0]);
             var connectionString = args[1];
             var containerName = args[2];
             var sourceDirName = args[3];
@@ -23,12 +22,6 @@ namespace VideoBackupper
             var account = CloudStorageAccount.Parse(connectionString);
             var client = account.CreateCloudBlobClient();
             var container = client.GetContainerReference(containerName);
-
-            var sasPolicy = new SharedAccessBlobPolicy
-            {
-                SharedAccessExpiryTime = DateTime.UtcNow.AddDays(1),
-                Permissions = SharedAccessBlobPermissions.Write | SharedAccessBlobPermissions.Read | SharedAccessBlobPermissions.List | SharedAccessBlobPermissions.Add | SharedAccessBlobPermissions.Create | SharedAccessBlobPermissions.Delete,
-            };
 
             var realmConfig = new RealmConfiguration(Path.Combine(Environment.CurrentDirectory, "db.realm"));
             var fileLastWriteTimes = await RealmContext.InvokeAsync(realmConfig, realm => realm.All<Item>().ToDictionary(t => t.Name, t => t.LastWriteTime));
@@ -68,13 +61,8 @@ namespace VideoBackupper
                         if (!await blob.ExistsAsync() || blob.Properties.StandardBlobTier != StandardBlobTier.Archive)
                         {
                             await blob.DeleteIfExistsAsync();
+                            await AzCopy.UploadFileAsync(fileName, blob);
 
-                            var sasBlobToken = blob.GetSharedAccessSignature(sasPolicy);
-                            var u = blob.Uri.OriginalString + sasBlobToken;
-                            var p = Process.Start(azcopyPath, $"copy \"{fileName}\" \"{u}\" --overwrite=prompt --follow-symlinks --recursive --from-to=LocalBlob --blob-type=Detect --put-md5");
-                            p.WaitForExit();
-
-                            //await blob.UploadFromFileAsync(fileName);
                             if (Path.GetExtension(name) != ".prproj")
                             {
                                 await blob.SetStandardBlobTierAsync(StandardBlobTier.Archive);
