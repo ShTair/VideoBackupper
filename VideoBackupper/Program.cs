@@ -13,6 +13,8 @@ namespace VideoBackupper
     {
         static async Task Main(string[] args)
         {
+            var immutableFileExtensions = new string[] { ".mp4", ".wav", ".ts" };
+
             AzCopy.Initialize(args[0]);
             var connectionString = args[1];
             var containerName = args[2];
@@ -33,11 +35,11 @@ namespace VideoBackupper
 
                 var backupSeriesName = Path.Combine(backupDirName, seriesName);
                 var backupSeriesUri = new Uri(backupSeriesName);
-                Directory.CreateDirectory(backupSeriesName);
 
                 foreach (var fileName in Directory.EnumerateFiles(sourceSeriesName, "*", SearchOption.AllDirectories))
                 {
                     if (fileName.Contains("Adobe Premiere Pro Auto-Save")) continue;
+                    if (fileName.Contains("Adobe Premiere Pro Audio Previews")) continue;
                     if (fileName.Contains("desktop.ini")) continue;
 
                     var lastWriteTime = new DateTimeOffset(File.GetLastWriteTimeUtc(fileName));
@@ -63,7 +65,7 @@ namespace VideoBackupper
                             await blob.DeleteIfExistsAsync();
                             await AzCopy.UploadFileAsync(fileName, blob);
 
-                            if (Path.GetExtension(name) != ".prproj")
+                            if (immutableFileExtensions.Contains(Path.GetExtension(name)))
                             {
                                 await blob.SetStandardBlobTierAsync(StandardBlobTier.Archive);
                             }
@@ -86,6 +88,26 @@ namespace VideoBackupper
                     }
 
                     fileLastWriteTimes.Remove(name);
+                }
+            }
+
+            if (fileLastWriteTimes.Count != 0)
+            {
+                Console.WriteLine("層をアーカイブに変更します。");
+                foreach (var removeFileName in fileLastWriteTimes.Keys)
+                {
+                    var blob = container.GetBlockBlobReference(removeFileName);
+                    if (await blob.ExistsAsync() && blob.Properties.StandardBlobTier != StandardBlobTier.Archive)
+                    {
+                        Console.WriteLine($"{removeFileName}");
+                        await blob.SetStandardBlobTierAsync(StandardBlobTier.Archive);
+                    }
+
+                    await RealmContext.InvokeAsync(realmConfig, realm =>
+                    {
+                        var item = realm.All<Item>().FirstOrDefault(t => t.Name == removeFileName);
+                        realm.Write(() => realm.Remove(item));
+                    });
                 }
             }
         }
