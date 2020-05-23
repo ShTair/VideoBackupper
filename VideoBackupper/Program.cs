@@ -15,17 +15,18 @@ namespace VideoBackupper
         {
             var immutableFileExtensions = new string[] { ".mp4", ".wav", ".ts" };
 
-            AzCopy.Initialize(args[0]);
-            var connectionString = args[1];
-            var containerName = args[2];
-            var sourceDirName = args[3];
-            var backupDirName = args[4];
+            var dbPath = args[0];
+            AzCopy.Initialize(args[1]);
+            var connectionString = args[2];
+            var containerName = args[3];
+            var sourceDirName = args[4];
+            var backupDirName = args[5];
 
             var account = CloudStorageAccount.Parse(connectionString);
             var client = account.CreateCloudBlobClient();
             var container = client.GetContainerReference(containerName);
 
-            var realmConfig = new RealmConfiguration(Path.Combine(Environment.CurrentDirectory, "db.realm"));
+            var realmConfig = new RealmConfiguration(Path.Combine(dbPath, "db.realm"));
             var fileLastWriteTimes = await RealmContext.InvokeAsync(realmConfig, realm => realm.All<Item>().ToDictionary(t => t.Name, t => t.LastWriteTime));
 
             foreach (var sourceSeriesName in Directory.EnumerateDirectories(sourceDirName))
