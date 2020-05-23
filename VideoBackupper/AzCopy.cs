@@ -39,29 +39,16 @@ namespace VideoBackupper
 
                 string line;
                 bool isCompleted = false;
-                pastCl = 0;
                 while ((line = await p.StandardOutput.ReadLineAsync()) != null)
                 {
-                    WriteOver(line);
+                    Utils.Write(line);
                     if (line.StartsWith("Final Job Status: Completed")) isCompleted = true;
                 }
-
-                WriteOver("");
-                Console.CursorLeft = 0;
 
                 if (!isCompleted) throw new Exception();
 
                 await tcs.Task;
             }
-        }
-
-        private static int pastCl = 0;
-
-        private static void WriteOver(string str)
-        {
-            Console.CursorLeft = 0;
-            Console.Write(str.PadRight(pastCl));
-            pastCl = str.Length;
         }
     }
 }
