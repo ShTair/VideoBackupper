@@ -15,7 +15,7 @@ namespace VideoBackupper
     {
         static async Task Main(string[] args)
         {
-            var immutableFileExtensions = new string[] { ".mp4", ".wav", ".ts" };
+            var immutableFileExtensions = new string[] { ".mp4", ".wav", ".ts", ".mp3", ".mov" };
 
             var dbPath = args[0];
             AzCopy.Initialize(args[1]);
@@ -61,6 +61,8 @@ namespace VideoBackupper
                         DateTimeOffset past;
                         if (!fileLastWriteTimes.TryGetValue(name, out past) || past != lastWriteTime)
                         {
+                            Utils.WriteLine($"bcup {name}");
+
                             tasks.Add(Task.Run(async () =>
                             {
                                 var backupFileUri = new Uri(backupSeriesUri, relativeUri);
@@ -82,7 +84,7 @@ namespace VideoBackupper
                                         await blob.DeleteIfExistsAsync();
                                         await AzCopy.UploadFileAsync(fileName, blob);
 
-                                        if (immutableFileExtensions.Contains(Path.GetExtension(name)))
+                                        if (immutableFileExtensions.Contains(Path.GetExtension(name).ToLower()))
                                         {
                                             await blob.SetStandardBlobTierAsync(StandardBlobTier.Archive);
                                         }
@@ -112,7 +114,7 @@ namespace VideoBackupper
                         }
                         else
                         {
-                            Utils.WriteLine($"xxxx {name}");
+                            Utils.WriteLine($"pass {name}");
                             fileLastWriteTimes.Remove(name);
                         }
                     }
@@ -123,13 +125,14 @@ namespace VideoBackupper
 
             if (fileLastWriteTimes.Count != 0)
             {
-                Utils.WriteLine("層をアーカイブに変更します。");
                 foreach (var removeFileName in fileLastWriteTimes.Keys)
                 {
+                    Utils.WriteLine($"removed {removeFileName}");
+
                     var blob = container.GetBlockBlobReference(removeFileName);
                     if (await blob.ExistsAsync() && blob.Properties.StandardBlobTier != StandardBlobTier.Archive)
                     {
-                        Utils.WriteLine($"{removeFileName}");
+                        Utils.WriteLine($"archive {removeFileName}");
                         await blob.SetStandardBlobTierAsync(StandardBlobTier.Archive);
                     }
 
