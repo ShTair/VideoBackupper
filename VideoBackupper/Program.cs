@@ -51,6 +51,7 @@ namespace VideoBackupper
                         if (fileName.Contains("Adobe Premiere Pro Audio Previews")) continue;
                         if (fileName.Contains("Adobe Premiere Pro Video Previews")) continue;
                         if (fileName.Contains("GPUCache")) continue;
+                        if (fileName.Contains("debug.log")) continue;
                         if (File.GetAttributes(fileName).HasFlag(FileAttributes.Hidden)) continue;
 
                         var lastWriteTime = new DateTimeOffset(File.GetLastWriteTimeUtc(fileName));
